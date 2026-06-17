@@ -1,73 +1,54 @@
-# React + TypeScript + Vite
+# Synth
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A playable, polyphonic subtractive synthesizer that runs entirely in the browser. Built with the Web Audio API, React 19, TypeScript, Vite, Tailwind, and Zustand.
 
-Currently, two official plugins are available:
+Play it with the on-screen piano, shape the sound with the control panels, and save your own patches.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+- **On-screen piano** — 2 octaves, mouse and touch. First click unlocks audio.
+- **Polyphonic** — up to 8 notes at once (last-note priority, steals the oldest voice when full).
+- **Per-voice signal chain** — dual oscillator (waveform, octave, detune, mix) → resonant low-pass filter with its own ADSR envelope → amp ADSR.
+- **Global modulation & FX** — one LFO routable to pitch or filter cutoff, plus a master delay and reverb.
+- **Presets** — 6 built-in factory patches (Init, Fat Bass, Soft Pad, Pluck, Lead, Wobble) and save/load your own to the browser (localStorage).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Getting started
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open the printed URL (default http://localhost:5173), **click a key** to start audio, then play. Load the **Wobble** preset to hear the LFO modulating the filter.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Scripts
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server with hot reload |
+| `npm run build` | Type-check (`tsc -b`) and build for production into `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run lint` | Run ESLint |
+
+## How it works
+
+The audio code and the React code are deliberately separated:
+
+- **Audio engine** (`src/audio/`) — plain TypeScript, no React. It owns every Web Audio node, so React re-renders never disturb a playing note.
+  - `types.ts` — the `SynthParams` contract shared by every layer, plus `DEFAULT_PARAMS`
+  - `voice.ts` — a single polyphonic voice (dual osc → filter+envelope → amp)
+  - `lfo.ts` — the global low-frequency oscillator
+  - `effects.ts` — master delay + reverb + volume
+  - `synthEngine.ts` — the voice pool and public API (`noteOn`, `noteOff`, `setParams`)
+  - `audioContext.ts` — the shared `AudioContext`
+- **State** (`src/state/synthStore.ts`) — a Zustand store that owns the engine instance and forwards every knob change and note event to it.
+- **UI** (`src/components/`, `src/App.tsx`) — the control surface: the `Keyboard`, a reusable `Slider`, and one panel per section (Oscillator, Envelope, Filter, LFO, FX, Master, plus the preset bar).
+- **Presets** (`src/presets/presets.ts`) — factory patches and the localStorage save/load helpers.
+
+If it helps to think in synth terms: the React components are the **front panel**, the Zustand store is the **patch memory / brain**, and the engine classes are the **circuitry** behind the panel.
+
+The full design contract lives in [`docs/superpowers/specs/2026-06-17-synth-design.md`](docs/superpowers/specs/2026-06-17-synth-design.md).
+
+## Not included (yet)
+
+Computer-keyboard and MIDI input, a step sequencer, audio recording/export, and more than two oscillators. The architecture leaves room for all of these.
